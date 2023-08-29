@@ -1,18 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Animated } from "react-native";
 import { Camera } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
 import axios from "axios";
 import Icon from "react-native-vector-icons/Ionicons";
 
 const SignCaptureScreen = () => {
-    // State
-    const cameraRef = useRef(null);
-    const [hasCameraPermission, setHasCameraPermission] = useState(null);
-    const [type, setType] = useState(Camera.Constants.Type.back);
-    const [image, setImage] = useState(null);
-    const [detectionResult, setDetectionResult] = useState(null);
+    
+    const cameraRef = useRef(null); // Referensi ke komponen Camera
+    const [hasCameraPermission, setHasCameraPermission] = useState(null); // State untuk menyimpan status permission kamera
+    const [type, setType] = useState(Camera.Constants.Type.back); // State untuk menyimpan tipe kamera (depan/belakang)
+    const [image, setImage] = useState(null); // State untuk menyimpan hasil foto
+    const [detectionResult, setDetectionResult] = useState(null); // State untuk menyimpan hasil deteksi
+    const [countdown, setCountdown] = useState(5); // State untuk menyimpan waktu countdown
+    const [showCountdown, setShowCountdown] = useState(false); // State untuk menyimpan status countdown
+    const [loading, setLoading] = useState(false); // State untuk menyimpan status loading
+    const loadingValue = useRef(new Animated.Value(0)).current; // Referensi ke komponen Animated
 
+    // Meminta permission untuk mengakses kamera dan media library
     useEffect(() => {
         (async () => {
             MediaLibrary.requestPermissionsAsync();
@@ -21,13 +26,17 @@ const SignCaptureScreen = () => {
         })
     }, []);
 
+    // Mengambil foto
     const ambilFoto = async () => {
+        setShowCountdown(true);
         if (cameraRef) {
             try {
-                const data = await cameraRef.current.takePictureAsync();
-                console.log(data);
-                setImage(data.uri);
-                uploadImage(data.uri);
+                setTimeout(async () => {
+                    const data = await cameraRef.current.takePictureAsync();
+                    console.log(data);
+                    setImage(data.uri);
+                    uploadImage(data.uri);
+                }, 5000);
             }
             catch (error) {
                 console.log(error);
@@ -35,6 +44,7 @@ const SignCaptureScreen = () => {
         }
     }
 
+    // Mengubah tipe kamera
     const flipCamera = () => {
         setType(
             type === Camera.Constants.Type.back
@@ -43,9 +53,44 @@ const SignCaptureScreen = () => {
         );
     }
 
+    // Tampilan loading
+    function LoadingScreen() {
+        return (
+            <View style={styles.loadingContainer}>
+                <Animated.Image
+                    source={require('../assets/loader.gif')}
+                    style={{
+                        margin: 10,
+                        // transform: [
+                        //     {
+                        //         rotate: loadingValue.interpolate({
+                        //             inputRange: [0, 1],
+                        //             outputRange: ['0deg', '360deg']
+                        //         })
+                        //     }
+                        // ]
+                    }}
+                />
+            </View>
+        );
+    }
+
+    // Animasi loading
+    useEffect(() => {
+        Animated.loop(
+            Animated.timing(loadingValue, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true
+            })
+        ).start();
+    }, [loadingValue]);
+
+    // Upload gambar ke server
     const uploadImage = async (imageUri) => {
         try {
-            const url = "http://192.168.100.46:8000/predict";
+            setLoading(true);
+            const url = "http://192.168.51.246:8000/predict";
             const data = new FormData();
             data.append("sign", {
                 uri: imageUri,
@@ -55,6 +100,8 @@ const SignCaptureScreen = () => {
 
             data.append("username", "Daniel");
 
+
+
             const response = await axios.post(url, data, {
                 headers: {
                     "Content-Type": "multipart/form-data",
@@ -62,6 +109,7 @@ const SignCaptureScreen = () => {
             });
 
             setDetectionResult(response.data.hasil);
+            setLoading(false);
             console.log(response.data);
         }
         catch (error) {
@@ -69,11 +117,25 @@ const SignCaptureScreen = () => {
         }
     }
 
+    const startCountdown = () => {
+        let timer = setInterval(() => {
+            if (countdown > 1) {
+                setCountdown(countdown - 1);
+            } else {
+                clearInterval(timer);
+                setShowCountdown(false);
+                setCountdown(5);
+            }
+        }, 1000);
+    };
+
+    // Menghapus hasil deteksi
     const deteksiKembali = () => {
         setImage(null);
         setDetectionResult(null);
     }
 
+    // Tampilan kamera
     function DetectionView() {
         return (
             <>
@@ -107,6 +169,19 @@ const SignCaptureScreen = () => {
                                 onPress={flipCamera}
                             >
                                 <Icon name="camera-reverse" size={30} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 0.1,
+                                    alignSelf: "flex-start",
+                                    alignItems: "center",
+                                    borderRadius: 100,
+                                    backgroundColor: "rgba(0,0,0,0.5)",
+                                    margin: 10,
+                                    padding: 10,
+                                }}
+                            >
+                                <Text style={{ color: "white" }}>{showCountdown ? countdown : ""}</Text>
                             </TouchableOpacity>
                         </View>
                         <View
@@ -142,6 +217,7 @@ const SignCaptureScreen = () => {
         );
     }
 
+    // Tampilan hasil deteksi
     function ResultView() {
         return (
             <>
@@ -153,15 +229,9 @@ const SignCaptureScreen = () => {
                             detectionResult !== null ?
                                 <>
                                     <View style={styles.textRow}>
-                                        <Text style={styles.titleText}>{"Sebelum Normalisai"}
+                                        <Text style={styles.titleText}>{"Hasil Deteksi"}
                                         </Text>
                                         <Text style={styles.resultText}>{detectionResult.sebelum_normalisasi}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.textRow}>
-                                        <Text style={styles.titleText}>{"Setelah Normalisai"}
-                                        </Text>
-                                        <Text style={styles.resultText}>{detectionResult.sesudah_normalisasi}
                                         </Text>
                                     </View>
                                 </>
@@ -200,13 +270,16 @@ const SignCaptureScreen = () => {
         );
     }
 
-
     return (
         <>
             {
                 detectionResult === null
                     ?
-                    <DetectionView />
+                    loading === true
+                        ?
+                        <LoadingScreen />
+                        :
+                        <DetectionView />
                     :
                     <ResultView />
             }
@@ -214,6 +287,7 @@ const SignCaptureScreen = () => {
     );
 }
 
+// Styles
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -282,7 +356,12 @@ const styles = StyleSheet.create({
         color: "white",
         textAlign: "center",
         textAlignVertical: "center",
-    }
+    },
+    loadingContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+    },
 
 });
 

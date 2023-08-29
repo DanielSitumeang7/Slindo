@@ -6,16 +6,18 @@ import axios from 'axios';
 import Icon from "react-native-vector-icons/Ionicons";
 
 export default function SignRecordingScreen() {
-    const [hasPermission, setHasPermission] = useState(null);
-    const [type, setType] = useState(Camera.Constants.Type.back);
-    const [recording, setRecording] = useState(false);
-    const [videoResult, setVideoResult] = useState(null);
-    const [detectionResult, setDetectionResult] = useState(null);
-    const cameraRef = useRef(null);
-    const loadingValue = useRef(new Animated.Value(0)).current;
 
-    const retakeButtonStyle = [styles.button, { alignSelf: 'flex-end' }]
+    const [hasPermission, setHasPermission] = useState(null); // Variabel untuk menyimpan status permission kamera
+    const [type, setType] = useState(Camera.Constants.Type.back); // Variabel untuk menyimpan tipe kamera
+    const [recording, setRecording] = useState(false); // Variabel untuk menyimpan status recording
+    const [videoResult, setVideoResult] = useState(null); // Variabel untuk menyimpan hasil rekaman video
+    const [detectionResult, setDetectionResult] = useState(null); // Variabel untuk menyimpan hasil deteksi video
+    const cameraRef = useRef(null); // Variabel untuk menyimpan referensi kamera
+    const loadingValue = useRef(new Animated.Value(0)).current; // Variabel untuk menyimpan nilai animasi loading
 
+    const retakeButtonStyle = [styles.button, { alignSelf: 'flex-end' }] // Variabel untuk menyimpan style button retake
+
+    // useEffect untuk meminta permission kamera
     useEffect(() => {
         (async () => {
             if (hasPermission === null) {
@@ -25,12 +27,14 @@ export default function SignRecordingScreen() {
         })();
     }, [hasPermission]);
 
+    // fungsi untuk memulai rekaman video
     const startRecording = async () => {
-        if (cameraRef) {
+        if (cameraRef) { // jika kamera tersedia
             try {
 
-                setRecording(true);
+                setRecording(true); // set status recording menjadi true
 
+                // fungsi untuk memulai rekaman video
                 const video = await cameraRef.current.recordAsync(
                     {
                         quality: Camera.Constants.VideoQuality['1080p'],
@@ -39,8 +43,8 @@ export default function SignRecordingScreen() {
                 );
 
                 console.log(video);
-                setVideoResult(video);
-                detectionRecord(video.uri);
+                setVideoResult(video); // set hasil rekaman video
+                detectionRecord(video.uri); // fungsi untuk mendeteksi rekaman video
             }
             catch (err) {
                 console.log(err);
@@ -48,8 +52,11 @@ export default function SignRecordingScreen() {
         }
     }
 
+    // fungsi untuk mendeteksi rekaman video
     const detectionRecord = async (uriViedo) => {
-        const formData = new FormData();
+        const formData = new FormData(); // membuat form data untuk mengirim data ke server
+
+        // menambahkan data rekaman video ke form data
         formData.append('sign', {
             uri: uriViedo,
             type: 'video/mp4',
@@ -58,17 +65,20 @@ export default function SignRecordingScreen() {
 
         formData.append('username', 'Daniel');
 
-        const res = await axios.post('http://192.168.100.46:8000/predict', formData, {
+        // mengirim form data ke server
+        const res = await axios.post('http://192.168.51.246:8000/predict', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
         });
 
+        // set hasil deteksi video
         setDetectionResult(res.data.hasil);
 
         console.log(res.data);
     }
 
+    // fungsi untuk mengganti kamera
     const flipCamera = async () => {
         await cameraRef.current.resumePreview();
 
@@ -79,21 +89,24 @@ export default function SignRecordingScreen() {
         );
     }
 
+    // fungsi untuk merefresh kamera
     const refreshCamera = async () => {
         setHasPermission(null);
     }
 
-
+    // fungsi untuk menghentikan rekaman video
     const stopRecording = () => {
         cameraRef.current.stopRecording();
         setRecording(false);
     }
 
+    // fungsi untuk mengulang rekaman video
     const retakeVideo = () => {
         setVideoResult(null);
         setDetectionResult(null);
     }
 
+    // fungsi untuk menampilkan animasi loading
     function LoadingScreen(){
         return (
             <View style={styles.loadingContainer}>
@@ -115,6 +128,7 @@ export default function SignRecordingScreen() {
         );
     }
 
+    // useEffect untuk menjalankan animasi loading
     useEffect(() => {
         Animated.loop(
             Animated.timing(loadingValue, {
@@ -125,13 +139,17 @@ export default function SignRecordingScreen() {
         ).start();
     }, [loadingValue]);
 
+    // jika permission kamera belum didapat
     if (hasPermission === null) {
         return <View />;
     }
+
+    // jika permission kamera tidak didapat
     if (hasPermission === false) {
         return <Text>No access to camera</Text>;
     }
 
+    // kondisi mengecek hasil rekaman video
     if (videoResult == null) {
         const flipCameraStyle = [styles.button, { alignSelf: 'flex-start' }]
         const recordButtonStyle = [styles.button, { alignSelf: 'flex-end' }]
@@ -210,6 +228,7 @@ export default function SignRecordingScreen() {
     }
 }
 
+// style untuk komponen
 const styles = StyleSheet.create({
     container: {
         flex: 1
